@@ -1,0 +1,17 @@
+name: CodeQL Docker Image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the Docker image
+      run: |
+        docker build . --file Dockerfile \
+        --build-arg REPO=${{ github.repository }} \
+        --build-arg REF=${{ github.ref }} \
+        --build-arg COMMIT=${{ github.sha }} \
+        --build-arg PAT=${{ secrets.DEMO_SECRET }}

@@ -1,0 +1,37 @@
+name: "Containerized CodeQL"
+
+on: 
+#   push:
+#     branches: [main]
+#   pull_request:
+#     branches: [main]
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript']
+
+    container:
+      image: chelseamboling/ubuntu-codeql:1.0
+      # mcr.microsoft.com/cstsectools/codeql-container
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v1
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v1

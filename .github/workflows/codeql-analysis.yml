@@ -1,0 +1,68 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+  
+env:
+  WORKSPACE: /home/runner/work 
+  # GITHUB_WORKPACE is /home/runner/work/repo-name/repo-name if using the Checkout action
+  # https://docs.github.com/en/actions/reference/environment-variables
+  # The purpose of defining WORKSPACE is so that the codeql-home, codeql-database, codeql-sarif-results directories are on the same level
+  
+  # CODEQL DIRECTORIES, FILES
+  CODEQL_HOME: /home/runner/work/codeql-home
+  CODEQL_BINARY: /home/runner/work/codeql-home/codeql/codeql
+  CODEQL_DATABASE: /home/runner/work/codeql-database
+  CODEQL_SARIF: /home/runner/work/codeql-sarif-results
+  CODEQL_SARIF_FILE: /home/runner/work/codeql-sarif-results/code-scanning-alerts.sarif
+  
+  # CODEQL LANGUAGE AND QUERIES 
+  # The CodeQL CLI only supports one language to analyse
+  CODEQL_LANGUAGE: javascript
+  # ..codeql-suites/ has multiple suites. The built-in queries is called <language>-code-scanning.qls
+  # https://github.com/github/codeql/tree/main/javascript/ql/src/codeql-suites
+  CODEQL_QUERIES: /home/runner/work/codeql-home/codeql/qlpacks/codeql-javascript/codeql-suites/javascript-security-and-quality.qls
+
+jobs:
+  analyze:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+      
+    - name: Setup Required Directories and Files
+      run: |
+        cd ${{ env.WORKSPACE }}
+        mkdir ${{ env.CODEQL_HOME }}
+        mkdir ${{ env.CODEQL_SARIF }}
+        touch ${{ env.CODEQL_SARIF_FILE }}
+    
+    - name: Download CodeQL Bundle
+      run: |
+        cd ${{ env.CODEQL_HOME }}
+        wget -q https://github.com/github/codeql-action/releases/latest/download/codeql-bundle-linux64.tar.gz
+        tar xzf ./codeql-bundle-linux64.tar.gz
+
+    - name: Create CodeQL Database
+      run: |
+        ${{ env.CODEQL_BINARY }} database create ${{ env.CODEQL_DATABASE }} --language=${{ env.CODEQL_LANGUAGE }}
+
+    - name: Perform CodeQL Analysis
+      run: |
+        ${{ env.CODEQL_BINARY }} database analyze ${{ env.CODEQL_DATABASE }} ${{ env.CODEQL_QUERIES }} --format=sarif-latest --output=${{ env.CODEQL_SARIF_FILE }}
+        
+    - name: Upload CodeQL SARIF Results
+      run: |
+        ${{ env.CODEQL_BINARY }} github upload-results --repository=$GITHUB_REPOSITORY --ref=$GITHUB_REF --commit=$GITHUB_SHA --sarif=${{ env.CODEQL_SARIF_FILE }} --github-auth-stdin=${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Uploade SARIF and time analysis logs 
+      uses: actions/upload-artifact@v2
+      with:
+        name: repo-artifacts
+        path: ${{ env.CODEQL_SARIF }}

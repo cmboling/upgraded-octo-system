@@ -1,0 +1,67 @@
+name: "Default CodeQL"
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    
+  schedule:
+    - cron: '32 23 * * 1'
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v1
+      with:
+        languages: ${{ matrix.language }}
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v1
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v1
+      with:
+        output: code-scanning-results
+
+    - name: Upload SARIF as an Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: sarif
+        path: code-scanning-results
+        retention-days: 7
+        
+    - name: Zip CodeQL database
+      id: codeql-database-bundle
+      env:
+        LANGUAGE: ${{ matrix.language }}
+      run: |
+        set -xu
+        CODEQL_DATABASE="/home/runner/work/_temp/codeql_databases/$LANGUAGE"
+        
+        CODEQL_DATABASE_ZIP="codeql-database-$LANGUAGE.zip"
+        zip -r "$CODEQL_DATABASE_ZIP" "$CODEQL_DATABASE"
+
+        echo "::set-output name=zip::$CODEQL_DATABASE_ZIP"
+
+    - name: Upload CodeQL database
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ matrix.language }}-db
+        path: ${{ steps.codeql-database-bundle.outputs.zip }}

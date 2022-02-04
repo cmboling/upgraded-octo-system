@@ -1,0 +1,61 @@
+trigger:
+  branches:
+    include:
+      - '*'
+  tags:
+    include:
+      - '*'
+
+schedules:
+- cron: "0 14 * * *" # 00:00 AEST is 14:00 UTC
+  displayName: 'Daily Build'
+  branches:
+    include:
+      - main
+
+pool:
+    vmImage: 'windows-latest'
+
+variables:
+  BuildConfiguration: 'release'
+  OurWorkingDirectoryV2: 'D:\a\1'
+
+steps:
+- task: PowerShell@2
+  displayName: CodeQL Setup
+  inputs:
+    targetType: inline
+    script: |     
+      Write-Host "DOWNLOADING CODEQL WINDOWS BUNDLE"
+      cd $(OurWorkingDirectoryV2)
+      Invoke-WebRequest -uri https://github.com/github/codeql-action/releases/latest/download/codeql-bundle-win64.tar.gz -OutFile $(OurWorkingDirectoryV2)\codeql-bundle-win64.tar.gz
+      tar zxf ./codeql-bundle-win64.tar.gz
+
+- task: PowerShell@2
+  displayName: CodeQL Initialisation
+  inputs:
+    targetType: inline
+    script: |
+      Write-Host "CREATING CODEQL DATABASE"    
+      & $(OurWorkingDirectoryV2)\codeql\codeql database create $(OurWorkingDirectoryV2)\codeql-database --language=javascript #--command=
+      #dotnet restore **/*.sln
+      #dotnet build **/something.csproj --configuration $(BuildConfiguration) --no-restore
+
+- task: PowerShell@2
+  displayName: CodeQL Analysis
+  inputs:
+    targetType: inline
+    script: |
+      Write-host "PERFORMING CODEQL ANALYSIS"
+      New-Item -ItemType "directory" -Path $(OurWorkingDirectoryV2)\codeql-sarif
+      New-Item -ItemType "directory" -Path $(OurWorkingDirectoryV2)\codeql-sarif\code-scanning-alerts.sarif
+    
+      & $(OurWorkingDirectoryV2)\codeql\codeql database analyze $(OurWorkingDirectoryV2)\codeql-database $(OurWorkingDirectoryV2)\codeql\qlpacks\codeql-csharp\codeql-suites\csharp-code-scanning.qls --format=sarif-latest --output=$(OurWorkingDirectoryV2)\codeql-sarif\code-scanning-alerts.sarif
+      
+- task: PowerShell@2
+  displayName: Upload CodeQL Results
+  inputs:
+    targetType: inline
+    script: |
+      Write-host "UPLOAD CODEQL RESULTS"      
+      & $(OurWorkingDirectoryV2)\codeql\codeql github upload-results --repository=advanced-security/javascript-codeql-cli-test-workflow --ref=$(Build.SourceBranch) --commit=$(Build.SourceVersion) --sarif=$(OurWorkingDirectoryV2)\codeql-sarif\code-scanning-alerts.sarif --github-auth-stdin=$(ACCESS_TOKEN)

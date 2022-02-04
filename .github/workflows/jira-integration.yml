@@ -1,0 +1,22 @@
+name: "JIRA Integration"
+
+on:
+  workflow_dispatch:
+  push:
+
+# permissions:
+#   security-events: write
+
+jobs:
+  test_job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: JIRA Integration
+        uses: github/ghas-jira-integration@main
+        with:
+          github_token: '${{ secrets.DEMO_SECRET }}'
+          jira_url: '${{ secrets.JIRA_URL }}'
+          jira_user: '${{ secrets.JIRA_USER }}'
+          jira_token: '${{ secrets.JIRA_TOKEN }}'
+          jira_project: '${{ secrets.JIRA_PROJECT }}'
+          issue_end_state: 'Closed'
